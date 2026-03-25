@@ -9,7 +9,7 @@ defmodule WhatsappSaas.Onboarding.OnboardingSession do
   alias WhatsappSaas.WhatsApp.WhatsappAccount
 
   @providers ~w(kapso)
-  @states ~w(created callback_received completed failed expired)
+  @states ~w(created link_generated callback_received connected failed)
 
   schema "onboarding_sessions" do
     field :provider, :string

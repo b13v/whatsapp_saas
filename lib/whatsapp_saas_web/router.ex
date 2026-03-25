@@ -8,4 +8,8 @@ defmodule WhatsappSaasWeb.Router do
   scope "/api", WhatsappSaasWeb do
     pipe_through :api
   end
+
+  scope "/", WhatsappSaasWeb do
+    get "/whatsapp/onboarding/callback", OnboardingController, :show
+  end
 end
