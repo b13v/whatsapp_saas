@@ -25,3 +25,9 @@ config :logger, level: :warning
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime
+
+config :whatsapp_saas, Oban,
+  repo: WhatsappSaas.Repo,
+  plugins: false,
+  queues: false,
+  testing: :manual

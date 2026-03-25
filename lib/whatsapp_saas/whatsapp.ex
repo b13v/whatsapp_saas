@@ -18,6 +18,52 @@ defmodule WhatsappSaas.WhatsApp do
   def provider_module_for_account(%WhatsappAccount{provider: provider}),
     do: ProviderRegistry.provider_module(provider)
 
+  def find_account_by_provider_hints(provider, hints) do
+    hints = Map.new(hints)
+
+    external_account_id =
+      Map.get(hints, :external_account_id) || Map.get(hints, "external_account_id")
+
+    external_phone_number_id =
+      Map.get(hints, :external_phone_number_id) || Map.get(hints, "external_phone_number_id")
+
+    external_waba_id = Map.get(hints, :external_waba_id) || Map.get(hints, "external_waba_id")
+
+    identifiers = [
+      {:external_account_id, external_account_id},
+      {:external_phone_number_id, external_phone_number_id},
+      {:external_waba_id, external_waba_id}
+    ]
+
+    if Enum.any?(identifiers, fn {_field, value} -> is_binary(value) and value != "" end) do
+      dynamic =
+        Enum.reduce(identifiers, false, fn
+          {_field, value}, acc when is_nil(value) or value == "" ->
+            acc
+
+          {field, value}, false ->
+            dynamic([account], field(account, ^field) == ^value)
+
+          {field, value}, acc ->
+            dynamic([account], ^acc or field(account, ^field) == ^value)
+        end)
+
+      query =
+        WhatsappAccount
+        |> where([account], account.provider == ^to_string(provider))
+        |> where(^dynamic)
+        |> order_by([account], desc: account.connected_at, desc: account.inserted_at)
+        |> limit(1)
+
+      case Repo.one(query) do
+        %WhatsappAccount{} = account -> {:ok, account}
+        nil -> {:error, :not_found}
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
   @spec get_account(struct(), Ecto.UUID.t()) ::
           {:ok, WhatsappAccount.t()} | {:error, atom()}
   def get_account(actor, account_id) do
@@ -71,11 +117,30 @@ defmodule WhatsappSaas.WhatsApp do
       Map.get(attrs, :external_account_id) || Map.get(attrs, "external_account_id")
 
     account =
-      if external_account_id do
-        Repo.get_by(WhatsappAccount,
-          tenant_id: tenant_id,
-          external_account_id: external_account_id
-        )
+      cond do
+        external_account_id ->
+          Repo.get_by(WhatsappAccount,
+            tenant_id: tenant_id,
+            external_account_id: external_account_id
+          )
+
+        Map.get(attrs, :external_phone_number_id) || Map.get(attrs, "external_phone_number_id") ->
+          Repo.get_by(WhatsappAccount,
+            tenant_id: tenant_id,
+            external_phone_number_id:
+              Map.get(attrs, :external_phone_number_id) ||
+                Map.get(attrs, "external_phone_number_id")
+          )
+
+        Map.get(attrs, :external_waba_id) || Map.get(attrs, "external_waba_id") ->
+          Repo.get_by(WhatsappAccount,
+            tenant_id: tenant_id,
+            external_waba_id:
+              Map.get(attrs, :external_waba_id) || Map.get(attrs, "external_waba_id")
+          )
+
+        true ->
+          nil
       end
 
     changeset_attrs = Map.put(Map.new(attrs), :tenant_id, tenant_id)

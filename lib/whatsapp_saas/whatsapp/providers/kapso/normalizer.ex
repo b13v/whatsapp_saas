@@ -216,7 +216,9 @@ defmodule WhatsappSaas.WhatsApp.Providers.Kapso.Normalizer do
       get_first(event_map, [:topic, :type, :event_type, :status_topic]) ||
         infer_topic_from_shape(event_map)
 
-    to_string(topic)
+    topic
+    |> to_string()
+    |> canonical_topic()
   end
 
   defp infer_topic_from_shape(event_map) do
@@ -232,6 +234,19 @@ defmodule WhatsappSaas.WhatsApp.Providers.Kapso.Normalizer do
 
       true ->
         "onboarding_update"
+    end
+  end
+
+  defp canonical_topic(topic) do
+    case topic do
+      "message.received" -> "inbound_message"
+      "message_received" -> "inbound_message"
+      "message.status" -> "message_status"
+      "message_status_changed" -> "message_status"
+      "account.connected" -> "account_updated"
+      "account.updated" -> "account_updated"
+      "business_account_update" -> "onboarding_update"
+      other -> other
     end
   end
 

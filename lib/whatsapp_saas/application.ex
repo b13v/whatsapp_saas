@@ -10,6 +10,7 @@ defmodule WhatsappSaas.Application do
     children = [
       WhatsappSaasWeb.Telemetry,
       WhatsappSaas.Repo,
+      {Oban, Application.fetch_env!(:whatsapp_saas, Oban)},
       {DNSCluster, query: Application.get_env(:whatsapp_saas, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: WhatsappSaas.PubSub},
       # Start a worker by calling: WhatsappSaas.Worker.start_link(arg)

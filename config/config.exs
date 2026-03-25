@@ -11,6 +11,11 @@ config :whatsapp_saas,
   ecto_repos: [WhatsappSaas.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+config :whatsapp_saas, Oban,
+  repo: WhatsappSaas.Repo,
+  plugins: [],
+  queues: [webhooks: 10]
+
 # Configures the endpoint
 config :whatsapp_saas, WhatsappSaasWeb.Endpoint,
   url: [host: "localhost"],

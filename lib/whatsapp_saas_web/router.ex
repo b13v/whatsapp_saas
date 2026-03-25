@@ -11,5 +11,6 @@ defmodule WhatsappSaasWeb.Router do
 
   scope "/", WhatsappSaasWeb do
     get "/whatsapp/onboarding/callback", OnboardingController, :show
+    post "/webhooks/whatsapp/kapso", WhatsAppWebhookController, :kapso
   end
 end

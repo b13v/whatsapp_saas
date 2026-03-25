@@ -13,6 +13,14 @@ defmodule WhatsappSaas.Inbox do
   alias WhatsappSaas.WhatsApp
   alias WhatsappSaas.WhatsApp.Template
 
+  @message_status_order %{
+    "queued" => 0,
+    "sent" => 1,
+    "delivered" => 2,
+    "read" => 3,
+    "failed" => 4
+  }
+
   def list_conversations(actor, tenant_id) do
     with :ok <- Policy.authorize_tenant_access(actor, tenant_id) do
       Conversation
@@ -176,7 +184,57 @@ defmodule WhatsappSaas.Inbox do
     |> Repo.update()
   end
 
+  def get_message_by_provider_message_id(provider_message_id)
+      when is_binary(provider_message_id) do
+    Message
+    |> where([message], message.provider_message_id == ^provider_message_id)
+    |> Repo.one()
+    |> case do
+      %Message{} = message -> {:ok, message}
+      nil -> {:error, :not_found}
+    end
+  end
+
+  def get_message_by_provider_message_id(_provider_message_id), do: {:error, :not_found}
+
+  def apply_provider_message_status(%Message{} = message, status, attrs \\ %{}) do
+    attrs = Map.new(attrs)
+
+    next_status =
+      if status_rank(status) >= status_rank(message.status) do
+        status
+      else
+        message.status
+      end
+
+    merged_attrs =
+      attrs
+      |> keep_present_values()
+      |> ensure_status_timestamps(status)
+      |> maybe_preserve_higher_state_timestamps(message)
+      |> Map.put(:status, next_status)
+
+    message
+    |> Message.changeset(merged_attrs)
+    |> Repo.update()
+  end
+
   def record_inbound_message(tenant_id, normalized_payload) do
+    message_payload = normalized_payload[:message] || normalized_payload["message"] || %{}
+
+    with {:ok, existing_message} <-
+           maybe_return_existing_inbound_message(tenant_id, message_payload) do
+      {:ok, %{message: existing_message, duplicate?: true}}
+    else
+      {:error, :not_found} ->
+        do_record_inbound_message(tenant_id, normalized_payload, message_payload)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp do_record_inbound_message(tenant_id, normalized_payload, message_payload) do
     with {:ok, contact} <- Contacts.upsert_contact_from_inbound(tenant_id, normalized_payload),
          {:ok, conversation} <-
            get_or_create_open_conversation(
@@ -184,27 +242,23 @@ defmodule WhatsappSaas.Inbox do
              normalized_payload[:whatsapp_account_id] ||
                normalized_payload["whatsapp_account_id"],
              contact.id
-           ) do
-      message_payload = normalized_payload[:message] || normalized_payload["message"] || %{}
-
+           ),
+         message_attrs <- %{
+           tenant_id: tenant_id,
+           conversation_id: conversation.id,
+           whatsapp_account_id: conversation.whatsapp_account_id,
+           contact_id: contact.id,
+           direction: "inbound",
+           kind: message_payload[:kind] || message_payload["kind"] || "text",
+           provider_message_id:
+             message_payload[:provider_message_id] || message_payload["provider_message_id"],
+           body: message_payload[:body] || message_payload["body"],
+           payload: message_payload[:payload] || message_payload["payload"] || %{},
+           sent_at: message_payload[:sent_at] || message_payload["sent_at"],
+           status: "delivered"
+         } do
       Multi.new()
-      |> Multi.insert(
-        :message,
-        Message.changeset(%Message{}, %{
-          tenant_id: tenant_id,
-          conversation_id: conversation.id,
-          whatsapp_account_id: conversation.whatsapp_account_id,
-          contact_id: contact.id,
-          direction: "inbound",
-          kind: message_payload[:kind] || message_payload["kind"] || "text",
-          provider_message_id:
-            message_payload[:provider_message_id] || message_payload["provider_message_id"],
-          body: message_payload[:body] || message_payload["body"],
-          payload: message_payload[:payload] || message_payload["payload"] || %{},
-          sent_at: message_payload[:sent_at] || message_payload["sent_at"],
-          status: "delivered"
-        })
-      )
+      |> Multi.insert(:message, Message.changeset(%Message{}, message_attrs))
       |> Multi.update(
         :conversation,
         Conversation.changeset(conversation, %{
@@ -228,6 +282,54 @@ defmodule WhatsappSaas.Inbox do
       end
     end
   end
+
+  defp maybe_return_existing_inbound_message(_tenant_id, message_payload) do
+    provider_message_id =
+      message_payload[:provider_message_id] || message_payload["provider_message_id"]
+
+    case get_message_by_provider_message_id(provider_message_id) do
+      {:ok, %Message{direction: "inbound"} = message} -> {:ok, message}
+      {:ok, _message} -> {:error, :not_found}
+      {:error, :not_found} -> {:error, :not_found}
+    end
+  end
+
+  defp ensure_status_timestamps(attrs, "sent"),
+    do: Map.put_new(attrs, :sent_at, DateTime.utc_now())
+
+  defp ensure_status_timestamps(attrs, "delivered") do
+    attrs
+    |> Map.put_new(:delivered_at, DateTime.utc_now())
+    |> Map.put_new(:sent_at, DateTime.utc_now())
+  end
+
+  defp ensure_status_timestamps(attrs, "read") do
+    attrs
+    |> Map.put_new(:read_at, DateTime.utc_now())
+    |> Map.put_new(:delivered_at, DateTime.utc_now())
+    |> Map.put_new(:sent_at, DateTime.utc_now())
+  end
+
+  defp ensure_status_timestamps(attrs, "failed"),
+    do: Map.put_new(attrs, :failed_at, DateTime.utc_now())
+
+  defp ensure_status_timestamps(attrs, _status), do: attrs
+
+  defp maybe_preserve_higher_state_timestamps(attrs, %Message{} = message) do
+    attrs
+    |> Map.put_new(:sent_at, message.sent_at)
+    |> Map.put_new(:delivered_at, message.delivered_at)
+    |> Map.put_new(:read_at, message.read_at)
+    |> Map.put_new(:failed_at, message.failed_at)
+  end
+
+  defp keep_present_values(attrs) do
+    attrs
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+  end
+
+  defp status_rank(status), do: Map.get(@message_status_order, status, -1)
 
   def send_text_reply(actor, %Conversation{} = conversation, attrs) do
     with :ok <-
