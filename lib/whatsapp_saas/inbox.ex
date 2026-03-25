@@ -235,7 +235,7 @@ defmodule WhatsappSaas.Inbox do
          {:ok, message} <-
            create_outgoing_message(conversation, Map.put(Map.new(attrs), :kind, "text")),
          account <- WhatsApp.get_account!(actor, conversation.whatsapp_account_id),
-         provider when is_atom(provider) <- WhatsApp.provider_module_for_account(account),
+         {:ok, provider} <- WhatsApp.provider_module_for_account(account),
          {:ok, response} <-
            provider.send_text_message(%{
              account: account,
@@ -249,7 +249,7 @@ defmodule WhatsappSaas.Inbox do
       })
     else
       {:error, reason} -> {:error, reason}
-      provider_error -> provider_error
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -265,7 +265,7 @@ defmodule WhatsappSaas.Inbox do
          {:ok, message} <-
            create_outgoing_message(conversation, Map.put(Map.new(attrs), :kind, "template")),
          account <- WhatsApp.get_account!(actor, conversation.whatsapp_account_id),
-         provider when is_atom(provider) <- WhatsApp.provider_module_for_account(account),
+         {:ok, provider} <- WhatsApp.provider_module_for_account(account),
          {:ok, response} <-
            provider.send_template_message(%{
              account: account,
@@ -280,7 +280,6 @@ defmodule WhatsappSaas.Inbox do
     else
       false -> {:error, :template_tenant_mismatch}
       {:error, reason} -> {:error, reason}
-      provider_error -> provider_error
     end
   end
 

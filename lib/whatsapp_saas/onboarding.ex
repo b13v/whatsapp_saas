@@ -20,7 +20,7 @@ defmodule WhatsappSaas.Onboarding do
     provider = Map.get(attrs, :provider) || Map.get(attrs, "provider") || "kapso"
 
     with :ok <- Policy.authorize_role_in_tenant(actor, tenant_id, ~w(owner admin)),
-         provider_module when is_atom(provider_module) <- WhatsApp.provider_module(provider),
+         {:ok, provider_module} <- WhatsApp.provider_module(provider),
          {:ok, provider_data} <- provider_module.create_onboarding_session(Map.new(attrs)) do
       session_attrs =
         attrs
@@ -57,7 +57,7 @@ defmodule WhatsappSaas.Onboarding do
       end
     else
       {:error, reason} -> {:error, reason}
-      provider_error -> provider_error
+      {:error, reason} -> {:error, reason}
     end
   end
 

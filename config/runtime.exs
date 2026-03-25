@@ -20,6 +20,11 @@ if System.get_env("PHX_SERVER") do
   config :whatsapp_saas, WhatsappSaasWeb.Endpoint, server: true
 end
 
+config :whatsapp_saas, WhatsappSaas.WhatsApp.Providers.Kapso.Client,
+  kapso_base_url: System.get_env("KAPSO_BASE_URL"),
+  kapso_api_key: System.get_env("KAPSO_API_KEY"),
+  kapso_timeout_ms: String.to_integer(System.get_env("KAPSO_TIMEOUT_MS") || "15000")
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

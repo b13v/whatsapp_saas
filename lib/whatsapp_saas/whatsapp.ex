@@ -8,17 +8,15 @@ defmodule WhatsappSaas.WhatsApp do
   alias Ecto.Multi
   alias WhatsappSaas.Accounts.Policy
   alias WhatsappSaas.Repo
-  alias WhatsappSaas.WhatsApp.{Template, WhatsappAccount}
+  alias WhatsappSaas.WhatsApp.{ProviderRegistry, Template, WhatsappAccount}
 
   @doc """
   Resolves a provider name to its adapter module.
   """
-  def provider_module("kapso"), do: WhatsappSaas.WhatsApp.Providers.Kapso
-  def provider_module(:kapso), do: WhatsappSaas.WhatsApp.Providers.Kapso
-  def provider_module(_), do: {:error, :unsupported_provider}
+  def provider_module(provider), do: ProviderRegistry.provider_module(provider)
 
   def provider_module_for_account(%WhatsappAccount{provider: provider}),
-    do: provider_module(provider)
+    do: ProviderRegistry.provider_module(provider)
 
   @spec get_account(struct(), Ecto.UUID.t()) ::
           {:ok, WhatsappAccount.t()} | {:error, atom()}
