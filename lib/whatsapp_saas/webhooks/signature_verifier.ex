@@ -2,25 +2,31 @@ defmodule WhatsappSaas.Webhooks.SignatureVerifier do
   @moduledoc """
   Provider webhook signature verification hook.
 
-  If no provider secret is configured, verification is skipped. Kapso's exact
-  production signature contract may still need tuning, but this provides a
-  real HMAC-based verification hook instead of pretending webhook verification
-  exists.
+  Each known provider maps to an atom in the module config. Unknown providers
+  are rejected immediately. Verification fails closed if no secret is
+  configured.
   """
 
-  @spec verify(String.t(), map(), map()) :: :ok | :skipped | {:error, :invalid_signature}
-  def verify(provider, payload, request_metadata) do
-    config = Application.get_env(:whatsapp_saas, __MODULE__, [])
+  @known_providers ~w(kapso)
 
-    case Keyword.get(config, secret_key(provider)) do
-      nil ->
-        :skipped
+  @spec verify(String.t(), map(), map()) :: :ok | {:error, :invalid_signature | :unknown_provider | :secret_not_configured}
+  def verify(provider, payload, request_metadata) when is_binary(provider) do
+    if provider in @known_providers do
+      config = Application.get_env(:whatsapp_saas, __MODULE__, [])
+      key = String.to_existing_atom("#{provider}_signature_secret")
 
-      "" ->
-        :skipped
+      case Keyword.get(config, key) do
+        nil ->
+          {:error, :secret_not_configured}
 
-      secret ->
-        verify_hmac(secret, payload, request_metadata)
+        "" ->
+          {:error, :secret_not_configured}
+
+        secret ->
+          verify_hmac(secret, payload, request_metadata)
+      end
+    else
+      {:error, :unknown_provider}
     end
   end
 
@@ -47,5 +53,4 @@ defmodule WhatsappSaas.Webhooks.SignatureVerifier do
     "sha256=" <> digest
   end
 
-  defp secret_key(provider), do: String.to_atom("#{provider}_signature_secret")
 end

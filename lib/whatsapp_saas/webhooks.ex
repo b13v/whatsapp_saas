@@ -107,7 +107,6 @@ defmodule WhatsappSaas.Webhooks do
   end
 
   defp normalize_signature_result(:ok), do: {:ok, :verified}
-  defp normalize_signature_result(:skipped), do: {:ok, :skipped}
   defp normalize_signature_result({:error, _reason} = error), do: error
 
   defp truncate_error(reason) do

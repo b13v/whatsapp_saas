@@ -165,5 +165,7 @@ defmodule WhatsappSaas.Accounts do
     end
   end
 
-  defp placeholder_password_hash, do: "invited-user-password-not-set"
+  defp placeholder_password_hash do
+    :crypto.strong_rand_bytes(32) |> Base.encode64(padding: false)
+  end
 end
