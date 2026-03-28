@@ -35,14 +35,18 @@ defmodule WhatsappSaas.MixProject do
       {:phoenix, "~> 1.7.10"},
       {:phoenix_ecto, "~> 4.4"},
       {:ecto_sql, "~> 3.10"},
-      {:postgrex, ">= 0.0.0"},
+      {:postgrex, "~> 0.19"},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:oban, "~> 2.17"},
-      {:plug_cowboy, "~> 2.5"}
+      {:plug_cowboy, "~> 2.5"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
+      {:ex_machina, "~> 2.8", only: :test},
+      {:mox, "~> 1.1", only: :test}
     ]
   end
 

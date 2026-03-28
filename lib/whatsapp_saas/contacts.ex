@@ -157,6 +157,30 @@ defmodule WhatsappSaas.Contacts do
     contact |> Contact.changeset(%{tags: tags}) |> Repo.update()
   end
 
+  @doc """
+  Returns contacts matching an audience filter mode for campaign targeting.
+  """
+  def list_contacts_for_audience(tenant_id, mode) do
+    query =
+      case mode do
+        "tagged_returning" ->
+          from(contact in Contact,
+            where: contact.tenant_id == ^tenant_id,
+            where: fragment("? ->> 'returning' = 'true'", contact.tags)
+          )
+
+        "subscribed" ->
+          from(contact in Contact,
+            where: contact.tenant_id == ^tenant_id and contact.opt_in_status == "subscribed"
+          )
+
+        _ ->
+          from(contact in Contact, where: contact.tenant_id == ^tenant_id)
+      end
+
+    {:ok, Repo.all(query)}
+  end
+
   defp maybe_insert_consent(multi, nil), do: multi
 
   defp maybe_insert_consent(multi, attrs) do

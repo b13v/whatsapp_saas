@@ -8,7 +8,7 @@ defmodule WhatsappSaas.Campaigns do
   alias Ecto.Multi
   alias WhatsappSaas.Accounts.Policy
   alias WhatsappSaas.Campaigns.{Campaign, CampaignDelivery}
-  alias WhatsappSaas.Contacts.Contact
+  alias WhatsappSaas.Contacts
   alias WhatsappSaas.Repo
   alias WhatsappSaas.WhatsApp.Template
 
@@ -136,25 +136,7 @@ defmodule WhatsappSaas.Campaigns do
       audience_filter = campaign.audience_filter || %{}
       mode = Map.get(audience_filter, "mode") || Map.get(audience_filter, :mode) || "all_contacts"
 
-      query =
-        case mode do
-          "tagged_returning" ->
-            from(contact in Contact,
-              where: contact.tenant_id == ^campaign.tenant_id,
-              where: fragment("? ->> 'returning' = 'true'", contact.tags)
-            )
-
-          "subscribed" ->
-            from(contact in Contact,
-              where:
-                contact.tenant_id == ^campaign.tenant_id and contact.opt_in_status == "subscribed"
-            )
-
-          _ ->
-            from(contact in Contact, where: contact.tenant_id == ^campaign.tenant_id)
-        end
-
-      {:ok, Repo.all(query)}
+      Contacts.list_contacts_for_audience(campaign.tenant_id, mode)
     end
   end
 

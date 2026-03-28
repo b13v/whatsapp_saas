@@ -13,8 +13,8 @@ config :whatsapp_saas,
 
 config :whatsapp_saas, Oban,
   repo: WhatsappSaas.Repo,
-  plugins: [],
-  queues: [webhooks: 10]
+  plugins: [Oban.Plugins.Pruner],
+  queues: [webhooks: 25]
 
 # Configures the endpoint
 config :whatsapp_saas, WhatsappSaasWeb.Endpoint,
