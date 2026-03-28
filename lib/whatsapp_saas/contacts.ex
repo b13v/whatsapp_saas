@@ -10,11 +10,12 @@ defmodule WhatsappSaas.Contacts do
   alias WhatsappSaas.Contacts.{Contact, ContactConsent}
   alias WhatsappSaas.Repo
 
-  def list_contacts(actor, tenant_id) do
+  def list_contacts(actor, tenant_id, opts \\ []) do
     with :ok <- Policy.authorize_tenant_access(actor, tenant_id) do
       Contact
       |> where([contact], contact.tenant_id == ^tenant_id)
       |> order_by([contact], asc: contact.name, asc: contact.phone_e164)
+      |> paginate(opts)
       |> Repo.all()
     end
   end
@@ -164,5 +165,16 @@ defmodule WhatsappSaas.Contacts do
 
   defp fetch_tenant_id!(attrs) do
     Map.get(attrs, :tenant_id) || Map.fetch!(attrs, "tenant_id")
+  end
+
+  @default_page_size 50
+
+  defp paginate(query, opts) do
+    limit = Keyword.get(opts, :limit, @default_page_size)
+    offset = Keyword.get(opts, :offset, 0)
+
+    query
+    |> limit(^limit)
+    |> offset(^offset)
   end
 end

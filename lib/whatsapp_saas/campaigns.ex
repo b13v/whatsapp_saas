@@ -12,11 +12,12 @@ defmodule WhatsappSaas.Campaigns do
   alias WhatsappSaas.Repo
   alias WhatsappSaas.WhatsApp.Template
 
-  def list_campaigns(actor, tenant_id) do
+  def list_campaigns(actor, tenant_id, opts \\ []) do
     with :ok <- Policy.authorize_tenant_access(actor, tenant_id) do
       Campaign
       |> where([campaign], campaign.tenant_id == ^tenant_id)
       |> order_by([campaign], desc: campaign.inserted_at)
+      |> paginate(opts)
       |> Repo.all()
     end
   end
@@ -162,25 +163,28 @@ defmodule WhatsappSaas.Campaigns do
          {:ok, contacts} <- build_campaign_audience(actor, campaign) do
       Multi.new()
       |> Multi.run(:deliveries, fn repo, _changes ->
-        deliveries =
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+        records =
           Enum.map(contacts, fn contact ->
-            attrs = %{
+            %{
+              id: Ecto.UUID.generate(),
               tenant_id: campaign.tenant_id,
               campaign_id: campaign.id,
               contact_id: contact.id,
-              status: "queued"
+              status: "queued",
+              inserted_at: now,
+              updated_at: now
             }
-
-            changeset = CampaignDelivery.changeset(%CampaignDelivery{}, attrs)
-
-            repo.insert(
-              changeset,
-              on_conflict: :nothing,
-              conflict_target: [:campaign_id, :contact_id]
-            )
           end)
 
-        {:ok, deliveries}
+        {count, _} =
+          repo.insert_all(CampaignDelivery, records,
+            on_conflict: :nothing,
+            conflict_target: [:campaign_id, :contact_id]
+          )
+
+        {:ok, count}
       end)
       |> Repo.transaction()
       |> case do
@@ -192,5 +196,16 @@ defmodule WhatsappSaas.Campaigns do
 
   defp fetch_tenant_id!(attrs) do
     Map.get(attrs, :tenant_id) || Map.fetch!(attrs, "tenant_id")
+  end
+
+  @default_page_size 50
+
+  defp paginate(query, opts) do
+    limit = Keyword.get(opts, :limit, @default_page_size)
+    offset = Keyword.get(opts, :offset, 0)
+
+    query
+    |> limit(^limit)
+    |> offset(^offset)
   end
 end

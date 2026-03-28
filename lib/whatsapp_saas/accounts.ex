@@ -11,10 +11,10 @@ defmodule WhatsappSaas.Accounts do
   alias WhatsappSaas.Repo
   alias WhatsappSaas.Tenants.Tenant
 
-  @spec get_user!(Ecto.UUID.t()) :: User.t()
+  @default_page_size 50
+
   def get_user!(user_id), do: Repo.get!(User, user_id)
 
-  @spec get_user_in_tenant(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, User.t()} | {:error, :not_found}
   def get_user_in_tenant(tenant_id, user_id) do
     User
     |> where([user], user.id == ^user_id and user.tenant_id == ^tenant_id)
@@ -25,12 +25,13 @@ defmodule WhatsappSaas.Accounts do
     end
   end
 
-  @spec list_tenant_users(struct(), Ecto.UUID.t()) :: [User.t()] | {:error, atom()}
-  def list_tenant_users(actor, tenant_id) do
+  @spec list_tenant_users(struct(), Ecto.UUID.t(), keyword()) :: [User.t()] | {:error, atom()}
+  def list_tenant_users(actor, tenant_id, opts \\ []) do
     with :ok <- Policy.authorize_role_in_tenant(actor, tenant_id, ~w(owner admin)) do
       User
       |> where([user], user.tenant_id == ^tenant_id)
       |> order_by([user], asc: user.inserted_at)
+      |> paginate(opts)
       |> Repo.all()
     end
   end
@@ -167,5 +168,14 @@ defmodule WhatsappSaas.Accounts do
 
   defp placeholder_password_hash do
     :crypto.strong_rand_bytes(32) |> Base.encode64(padding: false)
+  end
+
+  defp paginate(query, opts) do
+    limit = Keyword.get(opts, :limit, @default_page_size)
+    offset = Keyword.get(opts, :offset, 0)
+
+    query
+    |> limit(^limit)
+    |> offset(^offset)
   end
 end

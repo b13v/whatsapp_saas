@@ -8,7 +8,9 @@ defmodule WhatsappSaasWeb.Endpoint do
     store: :cookie,
     key: "_whatsapp_saas_key",
     signing_salt: "pi/UKiEq",
-    same_site: "Lax"
+    same_site: "Lax",
+    http_only: true,
+    secure: Application.compile_env(:whatsapp_saas, :env) == :prod
   ]
 
   # socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
@@ -40,6 +42,20 @@ defmodule WhatsappSaasWeb.Endpoint do
 
   plug Plug.MethodOverride
   plug Plug.Head
+  plug :security_headers
   plug Plug.Session, @session_options
   plug WhatsappSaasWeb.Router
+
+  @security_headers %{
+    "x-frame-options" => "DENY",
+    "x-content-type-options" => "nosniff",
+    "x-xss-protection" => "1; mode=block",
+    "referrer-policy" => "strict-origin-when-cross-origin"
+  }
+
+  defp security_headers(conn, _opts) do
+    Enum.reduce(@security_headers, conn, fn {header, value}, acc ->
+      Plug.Conn.put_resp_header(acc, header, value)
+    end)
+  end
 end

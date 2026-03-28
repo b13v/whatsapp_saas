@@ -21,7 +21,9 @@ defmodule WhatsappSaas.Inbox do
     "failed" => 4
   }
 
-  def list_conversations(actor, tenant_id) do
+  @default_page_size 50
+
+  def list_conversations(actor, tenant_id, opts \\ []) do
     with :ok <- Policy.authorize_tenant_access(actor, tenant_id) do
       Conversation
       |> where([conversation], conversation.tenant_id == ^tenant_id)
@@ -29,6 +31,7 @@ defmodule WhatsappSaas.Inbox do
         desc: conversation.last_message_at,
         desc: conversation.inserted_at
       )
+      |> paginate(opts)
       |> Repo.all()
     end
   end
@@ -127,11 +130,12 @@ defmodule WhatsappSaas.Inbox do
     end
   end
 
-  def list_messages(actor, conversation_id) do
+  def list_messages(actor, conversation_id, opts \\ []) do
     with {:ok, conversation} <- get_conversation(actor, conversation_id) do
       Message
       |> where([message], message.conversation_id == ^conversation.id)
       |> order_by([message], asc: message.inserted_at)
+      |> paginate(opts)
       |> Repo.all()
     end
   end
@@ -330,6 +334,15 @@ defmodule WhatsappSaas.Inbox do
   end
 
   defp status_rank(status), do: Map.get(@message_status_order, status, -1)
+
+  defp paginate(query, opts) do
+    limit = Keyword.get(opts, :limit, @default_page_size)
+    offset = Keyword.get(opts, :offset, 0)
+
+    query
+    |> limit(^limit)
+    |> offset(^offset)
+  end
 
   def send_text_reply(actor, %Conversation{} = conversation, attrs) do
     with :ok <-

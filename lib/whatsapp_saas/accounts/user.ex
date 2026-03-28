@@ -44,6 +44,8 @@ defmodule WhatsappSaas.Accounts.User do
     ])
     |> validate_required([:email, :hashed_password, :role, :status])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/)
+    |> validate_length(:email, max: 255)
+    |> validate_length(:full_name, max: 255)
     |> validate_inclusion(:role, @roles)
     |> validate_inclusion(:status, @statuses)
     |> unique_constraint(:email)
