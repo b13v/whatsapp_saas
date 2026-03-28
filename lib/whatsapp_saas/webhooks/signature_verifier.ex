@@ -9,6 +9,10 @@ defmodule WhatsappSaas.Webhooks.SignatureVerifier do
 
   @known_providers ~w(kapso)
 
+  # Ensure config key atoms exist at compile time so String.to_existing_atom/1
+  # never fails for known providers.
+  _ = Enum.map(@known_providers, &String.to_atom("#{&1}_signature_secret"))
+
   @spec verify(String.t(), map(), map()) :: :ok | {:error, :invalid_signature | :unknown_provider | :secret_not_configured}
   def verify(provider, payload, request_metadata) when is_binary(provider) do
     if provider in @known_providers do

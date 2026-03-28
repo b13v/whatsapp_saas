@@ -31,3 +31,6 @@ config :whatsapp_saas, Oban,
   plugins: false,
   queues: false,
   testing: :manual
+
+config :whatsapp_saas, WhatsappSaas.Webhooks.SignatureVerifier,
+  kapso_signature_secret: "test-secret-key-for-webhook-verification"

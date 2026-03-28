@@ -16,10 +16,12 @@ defmodule WhatsappSaas.WebhooksTest do
       "status" => "delivered"
     }
 
+    signature = compute_signature(payload)
+
     request_metadata = %{
       headers: %{"x-request-id" => "req-123"},
       ip: "127.0.0.1",
-      signature: nil
+      signature: signature
     }
 
     assert {:ok, %WebhookEvent{} = webhook_event} =
@@ -237,5 +239,17 @@ defmodule WhatsappSaas.WebhooksTest do
       )
     )
     |> Repo.insert!()
+  end
+
+  defp compute_signature(payload) do
+    secret =
+      Application.get_env(:whatsapp_saas, WhatsappSaas.Webhooks.SignatureVerifier, [])
+      |> Keyword.get(:kapso_signature_secret)
+
+    digest =
+      :crypto.mac(:hmac, :sha256, secret, Jason.encode!(payload))
+      |> Base.encode16(case: :lower)
+
+    "sha256=" <> digest
   end
 end
