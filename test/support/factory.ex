@@ -2,8 +2,11 @@ defmodule WhatsappSaas.Factory do
   use ExMachina.Ecto, repo: WhatsappSaas.Repo
 
   alias WhatsappSaas.Accounts.User
+  alias WhatsappSaas.Billing.UsageCounter
+  alias WhatsappSaas.Campaigns.Campaign
   alias WhatsappSaas.Contacts.Contact
   alias WhatsappSaas.Inbox.{Conversation, Message}
+  alias WhatsappSaas.Onboarding.OnboardingSession
   alias WhatsappSaas.Tenants.Tenant
   alias WhatsappSaas.WhatsApp.{Template, WebhookEvent, WhatsappAccount}
 
@@ -87,6 +90,35 @@ defmodule WhatsappSaas.Factory do
       language: "en",
       category: "marketing",
       status: "approved"
+    }
+  end
+
+  def onboarding_session_factory do
+    %OnboardingSession{
+      tenant: build(:tenant),
+      provider: "kapso",
+      state: "created",
+      external_setup_id: sequence(:setup_id, &"setup-#{&1}")
+    }
+  end
+
+  def campaign_factory do
+    %Campaign{
+      tenant: build(:tenant),
+      whatsapp_account: build(:whatsapp_account),
+      template: build(:template),
+      created_by_user: build(:user),
+      name: sequence(:campaign_name, &"Campaign #{&1}"),
+      status: "draft"
+    }
+  end
+
+  def usage_counter_factory do
+    %UsageCounter{
+      tenant: build(:tenant),
+      metric_date: Date.utc_today(),
+      messages_sent: 0,
+      messages_received: 0
     }
   end
 
