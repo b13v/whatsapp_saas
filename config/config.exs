@@ -16,6 +16,10 @@ config :whatsapp_saas, Oban,
   plugins: [Oban.Plugins.Pruner],
   queues: [webhooks: 25]
 
+config :hammer,
+  backend: {Hammer.Backend.ETS,
+   [expiry_ms: 60_000 * 5, cleanup_interval_ms: 60_000 * 2]}
+
 # Configures the endpoint
 config :whatsapp_saas, WhatsappSaasWeb.Endpoint,
   url: [host: "localhost"],
